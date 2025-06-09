@@ -1,6 +1,7 @@
 const db = require("../config/mysql.config");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { sendMail } = require("../middlewares/sendMail");
 const userController = {};
 
 userController.getAllUsers = async (req, res) => {
@@ -30,7 +31,7 @@ userController.getUserById = async (req, res) => {
 
 userController.createNewUser = async (req, res) => {
   try {
-    const requiredFields = ["name", "last_name", "birth_date", "email", "dni", "password"];
+    const requiredFields = ["name", "last_name", "birthdate", "email", "password"];
     for (const field of requiredFields) {
       if (!req.body[field]) {
         return res.status(400).json({ error: `Falta el campo: ${field}` });
@@ -38,7 +39,7 @@ userController.createNewUser = async (req, res) => {
     }
     const password = await generatePassword(req.body.password);
     const [rows] = await db.query(
-      "INSERT INTO users (`name`,last_name, phone, email, password, dni, nationality, address, genre, profile_picture, birth_date) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO users (`name`,last_name, phone, email, password, dni, nationality, address, genre, profile_picture, birthdate) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
       [
         req.body.name,
         req.body.last_name,
@@ -50,9 +51,16 @@ userController.createNewUser = async (req, res) => {
         req.body.address,
         req.body.genre,
         req.body.profile_picture,
-        req.body.birth_date,
+        req.body.birthdate,
       ]
     );
+    if (rows.affectedRows > 0) {
+      console.log("Inserción exitosa");
+      sendMail(req, res);
+      
+    } else {
+      console.log("No se insertó ninguna fila");
+    }
     res.status(201).json({ message: "Usuario creado con exito", userId: rows.insertId });
   } catch (error) {
     console.log(error);
@@ -75,7 +83,7 @@ userController.logIn = async (req, res) => {
           expiresIn: "1h",
           algorithm: "HS256",
         });
-        const {password: _, ...user} = rows[0];
+        const { password: _, ...user } = rows[0];
         res.status(200).send({ user, token: accesToken });
         /**const refreshToken = jwt.sign(
         { userId: user.id },
@@ -92,50 +100,50 @@ userController.logIn = async (req, res) => {
   }
 };
 
-userController.updateUserById = async (req,res) => {
-    try {
-        const { id } = req.params;
-        const useridFromToken = req.decoded.user_id;
- 
-        if (parseInt(id) !== useridFromToken) {
-            return res.status(403).json({error: "No tienes permiso para modificar este usuario"})
-        }
+userController.updateUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const useridFromToken = req.decoded.user_id;
 
-        if (!Object.keys(req.body).length) {
-            return res.status(400).json({error: "No se enviaron campos para actualizar"});
-        }
-
-        const fields = Object.keys(req.body).map(field => `${field} = ?`).join(', ');
-        const values = Object.values(req.body);
-        
-        const [ result ] = await db.query(`UPDATE users SET ${fields} WHERE user_id = ?`, [...values, id]);
-        if (result.affectedRows > 0) {
-            const [userRows] = await db.query('SELECT * FROM users WHERE user_id = ?', [id]);
-            res.status(200).json({message: "Usuario Actualizado con exito", user: userRows[0]});
-        }else{
-            res.status(404).json({error: 'Usuario no encontrado o sin cambios'});
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Error interno del servidor" });    
+    if (parseInt(id) !== useridFromToken) {
+      return res.status(403).json({ error: "No tienes permiso para modificar este usuario" });
     }
 
+    if (!Object.keys(req.body).length) {
+      return res.status(400).json({ error: "No se enviaron campos para actualizar" });
+    }
+
+    const fields = Object.keys(req.body)
+      .map((field) => `${field} = ?`)
+      .join(", ");
+    const values = Object.values(req.body);
+
+    const [result] = await db.query(`UPDATE users SET ${fields} WHERE user_id = ?`, [...values, id]);
+    if (result.affectedRows > 0) {
+      const [userRows] = await db.query("SELECT * FROM users WHERE user_id = ?", [id]);
+      res.status(200).json({ message: "Usuario Actualizado con exito", user: userRows[0] });
+    } else {
+      res.status(404).json({ error: "Usuario no encontrado o sin cambios" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
 };
 
 userController.removeUserById = (req, res) => {
-    try {
-        const {id} = req.params;
-        const useridFromToken = req.decoded.user_id;
- 
-        if (parseInt(id) !== useridFromToken) {
-            return res.status(403).json({error: "No tienes permiso para borrar este usuario"})
-        }
+  try {
+    const { id } = req.params;
+    const useridFromToken = req.decoded.user_id;
 
-    } catch (error) {
-        console.log(error);
-        req.status(500).json({error: "Error interno del servidor"});
+    if (parseInt(id) !== useridFromToken) {
+      return res.status(403).json({ error: "No tienes permiso para borrar este usuario" });
     }
-}
+  } catch (error) {
+    console.log(error);
+    req.status(500).json({ error: "Error interno del servidor" });
+  }
+};
 
 const generatePassword = async (pass) => {
   const hash = await bcrypt.hash(pass, 10);
