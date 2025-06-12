@@ -6,8 +6,6 @@ const PORT = process.env.PORT || 3010;//puerto por defecto generalmente para el 
 /**
  * Para añadir:
  * Uso de multer para controlar la subida de imagenes
- * Pensar bien en el verify, actualmente se tiene realizado el mail, hay que pasar en el link del correo electronico un token con el email encriptado diria
- * Asi nadie puede simplemente poner /verify con el email en el localhost y que se pase por la chota el email.
  * 
  */
 

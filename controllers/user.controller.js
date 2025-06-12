@@ -54,14 +54,12 @@ userController.createNewUser = async (req, res) => {
         req.body.birthdate,
       ]
     );
+    
     if (rows.affectedRows > 0) {
-      console.log("Inserción exitosa");
-      sendMail(req, res);
       
-    } else {
-      console.log("No se insertó ninguna fila");
+      sendMail(req.body.email);
     }
-    res.status(201).json({ message: "Usuario creado con exito", userId: rows.insertId });
+    res.status(201).json({ message: "Usuario creado con exito", userId: rows.insertId});
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Ocurrio un error al crear un nuevo usuario" });
@@ -128,6 +126,29 @@ userController.updateUserById = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
+userController.verifyUser = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const emailFromToken = req.decoded.email;
+
+    if (email !== emailFromToken) {
+      console.log(email, emailFromToken);
+      
+      return res.status(403).json({ error: "No tienes permiso para modificar este usuario" });
+    }
+
+    const [result] = await db.query(`UPDATE users SET verify = ? WHERE email = ?`, [true, email]);
+    if (result.affectedRows > 0) {
+      res.status(200).json({ message: "Usuario Actualizado con exito", success: true});
+    } else {
+      res.status(404).json({ error: "Usuario no encontrado o sin cambios", success: false});
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error interno del servidor", success: false });
   }
 };
 

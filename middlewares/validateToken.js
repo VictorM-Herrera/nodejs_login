@@ -13,9 +13,9 @@ const validateToken = (req, res, next) => {
   if (token) {
     jwt.verify(token, `${process.env.JWT_SECRET}`, (error, decoded) => {
       if (error) {
-        return res.json({ error: "Token invalido" });
+        return res.status(401).json({ error: "Token invalido"});
       } else {
-        res.decoded = decoded;
+        req.decoded = decoded;
         next();
       }
     });
